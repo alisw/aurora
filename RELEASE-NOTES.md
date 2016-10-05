@@ -9,6 +9,10 @@
   startup/warmup delay but rather as a desired health check duration.
 - A task's tier is now mapped to a label on the Mesos `TaskInfo` proto.
 - The Aurora client is now using the Thrift binary protocol to communicate with the scheduler.
+- A new `auth_mechanism`, `COOKIE`, is now available. This allows connecting to an
+  Aurora scheduler instance sitting behind a frontend which uses cookies for authentication,
+  e.g. SSO setups using SAML. You will need to obtain the cookie separately and place it in a
+  `MozillaCookieJar` compatible file in `~/.aurora/auth-token`.
 
 ### Deprecations and removals:
 
