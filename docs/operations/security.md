@@ -173,6 +173,35 @@ in `clusters.json`.
 }
 ```
 
+# Cookie Based authentication
+
+In some setups the authentication part is delegated to a frontend web server which authenticates
+users based on some method, e.g. a valid certificate, username and password, kerberos, looks
+up the user in some database, e.g. LDAP, and retrieves her / his roles. This information is
+then forwarded in a secure way (to avoid spoofing) to the Aurora scheduler running as backend,
+usually by adding extra headers to the HTTP request. In order to avoid credentials lookup every
+time a connection is made, a cookie is also returned to the client which allows the frontend to
+short-circuit the process.
+
+### Client configuration
+
+In order to pass a previously obtained cookie to be used for authentication you need to modify you
+`clusters.json` as follow.
+
+```
+% cat ~/.aurora/clusters.json
+{
+    "devcluser": {
+        "auth_mechanism": "COOKIE",
+        ...
+    },
+    ...
+}
+```
+
+the cookie must be stored in `MozillaCookieJar` compatible formati in `~/.aurora/auth-token`. Notice
+you should consider your cookie as a password and make sure no one else can read the file.
+
 # Authorization
 Given a means to authenticate the entity a client claims they are, we need to define what privileges they have.
 

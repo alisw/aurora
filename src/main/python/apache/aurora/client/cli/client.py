@@ -21,6 +21,7 @@ from twitter.common.log.formatters.plain import PlainFormatter
 from apache.aurora.client.cli import CommandLine, ConfigurationPlugin
 from apache.aurora.client.cli.options import CommandOption
 from apache.aurora.common.auth.auth_module_manager import register_auth_module
+from apache.aurora.common.cookie_auth_module import CookieAuthModule
 
 
 class AuroraLogConfigurationPlugin(ConfigurationPlugin):
@@ -82,6 +83,7 @@ class AuroraAuthConfigurationPlugin(ConfigurationPlugin):
     except ImportError:
       # Use default auth implementation if kerberos is not available.
       pass
+    register_auth_module(CookieAuthModule())
 
   def after_execution(self, context, result_code):
     pass
