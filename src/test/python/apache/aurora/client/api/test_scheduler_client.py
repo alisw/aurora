@@ -501,9 +501,10 @@ class TestSchedulerClient(unittest.TestCase):
     auth = mock_auth()
     user_agent = 'Some-User-Agent'
     uri = 'https://scheduler.example.com:1337'
+    cluster = Cluster(scheduler_uri=uri)
 
     client = scheduler_client.DirectSchedulerClient(
-        uri,
+        cluster,
         auth=auth,
         verbose=True,
         user_agent=user_agent)
@@ -565,7 +566,7 @@ class TestSchedulerClient(unittest.TestCase):
     client._connect_scheduler(uri, mock_time)
 
     mock_transport.assert_called_once_with(
-        uri,
+        cluster,
         auth=auth.auth(),
         user_agent=user_agent,
         session_factory=mock.ANY)

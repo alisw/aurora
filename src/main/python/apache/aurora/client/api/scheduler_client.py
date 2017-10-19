@@ -12,10 +12,13 @@
 # limitations under the License.
 #
 
+import cookielib
 import functools
+import sys
 import threading
 import time
 import traceback
+from os.path import expanduser
 
 import requests
 from pystachio import Default, Integer, String
@@ -48,10 +51,12 @@ class SchedulerClientTrait(Cluster.Trait):
   scheduler_uri     = String  # noqa
   proxy_url         = String  # noqa
   auth_mechanism    = Default(String, 'UNAUTHENTICATED')  # noqa
+  cookie_jar        = String  # noqa
 
 
-def _bypass_leader_redirect_session_factory(should_bypass=False):
+def _bypass_leader_redirect_session_factory(should_bypass=False, jar={}):
   session = requests.session()
+  session.cookies = jar
 
   if should_bypass:
     session.headers[BYPASS_LEADER_REDIRECT_HEADER_NAME] = 'true'
@@ -78,16 +83,22 @@ class SchedulerClient(object):
     if cluster.zk:
       return ZookeeperSchedulerClient(cluster, port=cluster.zk_port, auth=auth_handler, **kwargs)
     elif cluster.scheduler_uri:
-      return DirectSchedulerClient(cluster.scheduler_uri, auth=auth_handler, **kwargs)
+      return DirectSchedulerClient(cluster, auth=auth_handler, **kwargs)
     else:
       raise ValueError('"cluster" does not specify zk or scheduler_uri')
 
-  def __init__(self, auth, user_agent, verbose=False, bypass_leader_redirect=False):
+  def __init__(self, auth, user_agent, verbose=False, bypass_leader_redirect=False, jar=None):
     self._client = None
     self._auth_handler = auth
     self._user_agent = user_agent
     self._verbose = verbose
     self._bypass_leader_redirect = bypass_leader_redirect
+    if jar:
+      jar = cookielib.MozillaCookieJar(expanduser(jar))
+      jar.load()
+      self._jar = jar
+    else:
+      self._jar = {}
 
   def get_thrift_client(self):
     if self._client is None:
@@ -109,7 +120,8 @@ class SchedulerClient(object):
         user_agent=self._user_agent,
         session_factory=functools.partial(
             _bypass_leader_redirect_session_factory,
-            should_bypass=self._bypass_leader_redirect))
+            should_bypass=self._bypass_leader_redirect,
+            jar=self._jar))
 
     protocol = TJSONProtocol.TJSONProtocol(transport)
     schedulerClient = AuroraAdmin.Client(protocol)
@@ -203,9 +215,10 @@ class ZookeeperSchedulerClient(SchedulerClient):
 
 
 class DirectSchedulerClient(SchedulerClient):
-  def __init__(self, uri, verbose=True, **kwargs):
-    SchedulerClient.__init__(self, verbose=verbose, **kwargs)
-    self._uri = uri
+  def __init__(self, cluster, verbose=True, **kwargs):
+    jar = getattr(cluster, "cookie_jar", None)
+    SchedulerClient.__init__(self, verbose=verbose, jar=jar, **kwargs)
+    self._uri = cluster.scheduler_uri
 
   def _connect(self):
     return self._connect_scheduler(urljoin(self._uri, 'api'))
@@ -312,7 +325,6 @@ class SchedulerProxy(object):
             method = getattr(self.client(), method_name)
             if not callable(method):
               return method
-
             resp = method(*args)
             if resp is not None and resp.responseCode == ResponseCode.ERROR_TRANSIENT:
               raise self.TransientError(", ".join(
